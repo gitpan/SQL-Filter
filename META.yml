@@ -1,0 +1,25 @@
+---
+name: SQL-Filter
+version: 0.01
+author:
+  - Copyright (c) 2009 Pavel Boldin <davinchi@cpan.org>. All Rights Reserved.
+abstract: 'SQL::Filter -- create filtering queries from hash of rules and hash of data'
+license: perl
+resources:
+  license: http://dev.perl.org/licenses/
+build_requires:
+  Test::More: 0
+  YAML::Syck: 0
+requires:
+  Data::Visitor: 0
+  SQL::Abstract: 0
+  perl: 5.006
+configure_requires:
+  Module::Build: 0.34
+provides:
+  SQL::Filter:
+    file: lib/SQL/Filter.pm
+generated_by: Module::Build version 0.34
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
