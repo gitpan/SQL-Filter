@@ -27,7 +27,10 @@ use Data::Dumper;
 use Data::Visitor;
 use base 'Data::Visitor';
 
-use constant DEBUG => not not our $DEBUG || $ENV{SQL_FILTER_DEBUG};
+#use constant DEBUG => not not our $DEBUG || $ENV{SQL_FILTER_DEBUG};
+use constant DEBUG => 0;
+
+local $Data::Dumper::Indent = 0;
 
 sub new {
     my $class = shift;
@@ -51,7 +54,7 @@ sub new {
 	or die "table should be scalar or array";
 
     my $self = {
-	where => {},
+	where => [],
 	%param,
     };
 
@@ -145,13 +148,24 @@ sub _merge {
     my $where = $fields->{ where };
     my $self_where = $self->{ where };
 
-    foreach my $field ( keys %{ $where } ) {
-	if ( ref $where->{ $field } eq 'CODE' ) {
-	    $where->{ $field }->( $self_where );
-	    next;
+    #warn Dumper $where;
+
+    if ( $where ) {
+	if ( ref $where eq 'HASH' ) {
+	    $where = [ -nest => $where ];
+	}
+	elsif ( ref $where ne 'ARRAY' ) {
+	    $where = [ $where ];
 	}
 
-	$self_where->{ $field } = $where->{ $field };
+	foreach my $field ( @$where ) {
+	    if ( ref $field eq 'CODE' ) {
+		$field->( $self );
+		next;
+	    }
+	    warn Dumper $field if DEBUG;
+	    push @$self_where, $field;
+	}
     }
 
     push @{ $self->{ $_ } }, @{ $fields->{ $_.'s' } || [] } for qw/table field/;
@@ -162,6 +176,9 @@ sub _merge {
 #---------------------------------------------------------------------------
 sub visit_value {
     $_[1] =~ s/\$([\w_]+)/$_[0]->{input}{ $1 }/gxe;
+    if ( $1 && ref $_[0]->{input}{ $1 } ) {
+	$_[1] = $_[0]->{input}{ $1 };
+    }
     $_[1];
 }
 
@@ -170,13 +187,18 @@ sub visit_hash_value {
 
     my $input = $self->{input};
 
+    if ( $k eq '-like' ) {
+	$v =~ s/\$([\w_]+)/$input->{ $1 }/gxe;
+	$_[1] = $v =~ tr/%*_?/%%__/ ? $v : q{%}.$v.q{%};
+
+	return;
+    }
+
     #warn "key is $k";
-    return $self->SUPER::visit( $_[1] ) unless $k eq '-like';
+    return $self->SUPER::visit( $_[1] );
     #return $h unless join('', keys %$h) eq '-like';
 
     #warn 'visit_hash: '. Dumper @_;
-    $v =~ s/\$([\w_]+)/$input->{ $1 }/gxe;
-    $_[1] = $v =~ tr/%*_?/%%__/ ? $v : q{%}.$v.q{%};
     #return { -like => $v =~ tr/%*_?/%%__/ ? $v : q{%}.$v.q{%} };
 }
 
@@ -206,7 +228,7 @@ sub to_sql {
 
     warn 'to_sql: '. Dumper $self if DEBUG;
 
-    SQL::Abstract::My->new()->select( 
+    SQL::Abstract::My->new(logic => 'and')->select( 
 	$self->{ table },
 	$self->{ field },
 	$self->{ where  },

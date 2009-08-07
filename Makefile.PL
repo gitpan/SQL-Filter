@@ -6,8 +6,8 @@ WriteMakefile
           'NAME' => 'SQL::Filter',
           'VERSION_FROM' => 'lib/SQL/Filter.pm',
           'PREREQ_PM' => {
-                           'Data::Visitor' => 0,
-                           'SQL::Abstract' => 0,
+                           'Data::Visitor' => '0.25',
+                           'SQL::Abstract' => '1.56',
                            'Test::More' => 0,
                            'YAML::Syck' => 0
                          },
