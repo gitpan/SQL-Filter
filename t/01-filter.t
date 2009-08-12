@@ -36,9 +36,8 @@ foreach my $test (@$tests) {
 	input => $test->{input},
 	filter => $test->{filter}
     );
-    $filter->make_filter;
 
-    is_deeply( [ $filter->to_sql ], $test->{sql}, $test->{name} );
+    is_deeply( [ $filter->select ], $test->{sql}, $test->{name} );
 }
 
 __DATA__

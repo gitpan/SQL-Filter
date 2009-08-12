@@ -6,7 +6,7 @@ use Module::Build;
 my $build = Module::Build->new(
     license             => 'perl',
     module_name         => 'SQL::Filter',
-    dist_version	=> '0.011',
+    dist_version	=> '0.013',
     requires            => {
         'perl'              => 5.006,
 	'Data::Visitor'     => '0.25',

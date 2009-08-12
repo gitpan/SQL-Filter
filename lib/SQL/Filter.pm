@@ -24,13 +24,15 @@ use Data::Dumper;
 
 #use Any::Moose;
 
+use Clone qw/clone/;
+
 use Data::Visitor;
 use base 'Data::Visitor';
 
-#use constant DEBUG => not not our $DEBUG || $ENV{SQL_FILTER_DEBUG};
-use constant DEBUG => 0;
+use constant DEBUG => not not our $DEBUG || $ENV{SQL_FILTER_DEBUG};
+#use constant DEBUG => 1;
 
-local $Data::Dumper::Indent = 0;
+$Data::Dumper::Indent = 1;
 
 sub new {
     my $class = shift;
@@ -59,6 +61,9 @@ sub new {
     };
 
     bless $self, $class;
+
+    $self->_make_filter;
+    $self;
 }
 
 #===  FUNCTION  ================================================================
@@ -71,7 +76,7 @@ sub _arrize {
 
 
 #===  FUNCTION  ================================================================
-#         NAME:  make_filter
+#         NAME:  _make_filter
 #      PURPOSE:  Add fields necessary for making SQL query
 #		 into this SQL::Filter instance for that input and filter.
 #   PARAMETERS:  only $self, you can also provied $filter (from instance by default, then from get_filter instance method)
@@ -81,8 +86,8 @@ sub _arrize {
 #		with fields of filter for this input.
 #		Calls ->_set_input when done.
 #===============================================================================
-sub make_filter {
-    warn "make_filter ". Dumper \@_ if DEBUG;
+sub _make_filter {
+    warn "_make_filter ". Dumper \@_ if DEBUG;
 
     my $self  = shift;
     my $filter = shift || $self->{filter} || eval { $self->get_filter };
@@ -101,9 +106,9 @@ sub make_filter {
 	#warn "v = $v";
 	#my $v = $k ? $input->{ $k } : undef;
 
-	if ( my $cond  = $f->{cond} ) {
+	if ( $v and my $cond  = $f->{cond} ) {
 	    if ( my $condition = $cond->{ $v } ) {
-		$self->make_filter(
+		$self->_make_filter(
 		    _arrize( $condition ),
 		);
 		next;
@@ -118,7 +123,7 @@ sub make_filter {
 
 	if ( my $filter = $f->{ $fname } ) {
 #	    warn 'on_true ', Dumper $filter;
-	    $self->make_filter(
+	    $self->_make_filter(
 		_arrize( $filter ),
 	    );
 	}
@@ -151,6 +156,9 @@ sub _merge {
     #warn Dumper $where;
 
     if ( $where ) {
+	# CLONE IT!
+	$where = clone( $where );
+
 	if ( ref $where eq 'HASH' ) {
 	    $where = [ -nest => $where ];
 	}
@@ -175,7 +183,10 @@ sub _merge {
 #  Data::Visitor subroutines
 #---------------------------------------------------------------------------
 sub visit_value {
-    $_[1] =~ s/\$([\w_]+)/$_[0]->{input}{ $1 }/gxe;
+    $_[1] =~ s/\$([\w_]+)/$_[0]->{input}{ $1 }/gxe if $_[1];
+    if ( DEBUG && $1 ) {
+	warn "Substitute $1 with ".$_[0]->{input}{ $1 };
+    }
     if ( $1 && ref $_[0]->{input}{ $1 } ) {
 	$_[1] = $_[0]->{input}{ $1 };
     }
@@ -219,20 +230,64 @@ sub _set_input {
 
 
 #===  FUNCTION  ================================================================
-#         NAME:  to_sql
+#         NAME:  select
 #      PURPOSE:  converts SQL::Filter to SQL statement and @bind values
 #      RETURNS:  ($stmt, @bind)
 #===============================================================================
-sub to_sql {
+sub select {
+    my $self = shift;
+    my @rest = @_;
+
+    warn 'select '. Dumper $self if DEBUG;
+
+    my $n = SQL::Abstract::My->new(
+	logic	      => 'and',
+	limit_dialect => 'LimitXY',
+    );
+
+    if ( @rest > 1 ) {
+	return $n->select( 
+	    $self->{ table },
+	    $self->{ field },
+	    $self->{ where  },
+	    @rest,
+	);
+    }
+    else {
+	return $n->SQL::Abstract::select( 
+	    $self->{ table },
+	    $self->{ field },
+	    $self->{ where  },
+	    @rest,
+	);
+    }
+}
+
+sub tables {
+    SQL::Abstract::My->new()->_table( shift->{table} );
+}
+
+sub fields {
+    join ', ', @{ shift->{ field } };
+}
+
+sub where {
     my $self = shift;
 
-    warn 'to_sql: '. Dumper $self if DEBUG;
+    my @rest = @_;
 
-    SQL::Abstract::My->new(logic => 'and')->select( 
-	$self->{ table },
-	$self->{ field },
-	$self->{ where  },
-    );
+    my ($stmt, @bind) = 
+	SQL::Abstract::My->new(
+	    logic => 'and',
+	    limit_dialect => 'LimitXY',
+	)->where( 
+	    $self->{ where },
+	    @rest,
+	);
+
+    $stmt =~ s/^\s*WHERE//;
+
+    ($stmt, @bind);
 }
 
 #---------------------------------------------------------------------------
@@ -241,8 +296,8 @@ sub to_sql {
 package # hide from PAUSE
 	SQL::Abstract::My;
 
-use SQL::Abstract;
-use base 'SQL::Abstract';
+use SQL::Abstract::Limit;
+use base 'SQL::Abstract::Limit';
 
 sub _table  {
     my $self = shift;
@@ -312,7 +367,7 @@ SQL::Filter - Generate complex SQL where from Perl data structures
 	},
     );
 
-    my ($stmt, @bind) = $filter->to_sql;
+    my ($stmt, @bind) = $filter->select;
 
 =head1 DESCRIPTION
 
@@ -320,7 +375,8 @@ Making filter queries from complicated database always was pain in ass.
 So, after attempting to patch such code, I decided to write this module, which
 in exactly can be treated like an extension to SQL::Abstract which it uses.
 
-Now there is no need to put a bunch of ifs and C<$sql .= '...'> statements in your perl code. All you need to do a test is there, in that module.
+Now there is no need to put a bunch of ifs and C<$sql .= '...'> statements in
+your perl code. All you need to do a test is there, in that module.
 
 Filters are build like mentoined in example from L</"SYNOPSIS"> section.
 
@@ -365,8 +421,8 @@ Please, see tests for more details. More documentation is pending.
 =head1 FUNCTIONS
 
 One main function is the constructor, which gets almost all data need to
-build a filter. Another function is L</"make_filter"> which merges all the data to make the filter's SQL::Abstract data.
-And final one is L</"to_sql"> which converts SQL::Abstract to statement and bind values one can supply to ->prepare and ->execute.
+build a filter. Another function is L</"_make_filter"> which merges all the data to make the filter's SQL::Abstract data.
+And final one is L</"select"> which converts SQL::Abstract to statement and bind values one can supply to ->prepare and ->execute.
 
 =head2 new(option => 'value')
 
@@ -390,7 +446,7 @@ Filter - arrayref of described above format.
 
 Input data for constructing filter SQL based on these data.
 
-=head2 $self->make_filter( [ $filter ] )
+=head2 $self->_make_filter( [ $filter ] )
 
 Processes input and filter and then adds SQL::Abstract data to C<$self> 
 using values from C<< $self->{input} >> and filter from C<$filter>.
@@ -401,18 +457,24 @@ This function recurses heavily. Logic is described above.
 
 =head2 $self->_merge( $fields )
 
-Merge C<$fields> into C<$self>. Merged C<fields> (list of fields to select), C<tables> (list of tables to select from, including join), C<where> (hash with conditions in form of L<SQL::Abstract>).
+Merge C<$fields> into C<$self>. Merged C<fields> (list of fields to select),
+C<tables> (list of tables to select from, including join),
+C<where> (hash with conditions in form of L<SQL::Abstract>).
 
 =head2 C<< $self->_set_input() >>
 
-Substitutes C<< $self->{input} >> values into C<< $self->{where} >> hash, using magic of Data::Visitor. You can extend this method with arbitrary one to, for example, substitute array values.
+Substitutes C<< $self->{input} >> values into C<< $self->{where} >> hash,
+using magic of Data::Visitor. You can extend this method with arbitrary
+one to, for example, substitute array values.
 
 =head2 C<< $self->visit_value() >>
 =head2 C<< $self->visit_hash_value() >>
 
-Methods for Data::Visitor. First one replaces '$value' by C<< $input->{value} >>, second one searches for C<-like> key and changes it values in appropriate way. In exactly, processes LIKElity patterns.
+Methods for Data::Visitor. First one replaces '$value' by
+C<< $input->{value} >>, second one searches for C<-like> key and changes
+it values in appropriate way. In exactly, processes LIKElity patterns.
 
-=head2 C<< $self->to_sql() >>
+=head2 C<< $self->select() >>
 
 Returns SELECT statement and bind values from call of SQL::Abstract.
 
