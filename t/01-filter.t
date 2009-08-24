@@ -79,6 +79,13 @@ __DATA__
     - 'SELECT * FROM testme LEFT OUTER JOIN service_details s_d ON s_d.service_id = service_id NATURAL LEFT JOIN table t1 WHERE ( search_str_test LIKE ? )'
     - '%string%'
   name: condition and joins
+- filter: *1
+  input:
+    search_str:
+    search_str_test: '%string%'
+  sql:
+    - 'SELECT * FROM testme LEFT OUTER JOIN service_details s_d ON s_d.service_id = service_id NATURAL LEFT JOIN table t'
+  name: on_false
 - filter: &2
     - cond:
         given:

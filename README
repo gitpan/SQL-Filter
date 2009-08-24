@@ -1,0 +1,4 @@
+Some usefull stuff here.
+
+SQL::Filter is my ultimate answer for people who writes complex if/else/elsif
+for generating SQL SELECT's WHERE.

@@ -1,6 +1,6 @@
 ---
 name: SQL-Filter
-version: 0.013
+version: 0.014
 author:
   - Copyright (c) 2009 Pavel Boldin <davinchi@cpan.org>. All Rights Reserved.
 abstract: 'SQL::Filter -- create filtering queries from hash of rules and hash of data'
@@ -13,6 +13,7 @@ build_requires:
 requires:
   Data::Visitor: 0.25
   SQL::Abstract: 1.56
+  SQL::Abstract::Limit: 0.141
   perl: 5.006
 configure_requires:
   Module::Build: 0.34

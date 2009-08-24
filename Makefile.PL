@@ -8,6 +8,7 @@ WriteMakefile
           'PREREQ_PM' => {
                            'Data::Visitor' => '0.25',
                            'SQL::Abstract' => '1.56',
+                           'SQL::Abstract::Limit' => '0.141',
                            'Test::More' => 0,
                            'YAML::Syck' => 0
                          },

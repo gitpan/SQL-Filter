@@ -115,14 +115,14 @@ sub _make_filter {
 	    }
 	}
 
-	next unless defined $v;
+	#next unless defined $v;
 
 	my $fname = $v ? 'on_true' : 'on_false';
 
 	warn "$fname ", Dumper $input if DEBUG;
 
 	if ( my $filter = $f->{ $fname } ) {
-#	    warn 'on_true ', Dumper $filter;
+	    #warn 'on_true/on_false ', Dumper $filter;
 	    $self->_make_filter(
 		_arrize( $filter ),
 	    );
